@@ -2,7 +2,7 @@ package main
 
 var cache map[int]int = make(map[int]int)
 
-func problem_002() int {
+func problem_002(n int) int {
 	cache[1] = 1
 	cache[2] = 1
 
@@ -10,7 +10,7 @@ func problem_002() int {
 	i := 1
 	for 1 == 1 {
 		f := fib(i)
-		if f > 4000000 {
+		if f > n {
 			break
 		}
 		if f%2 == 0 {
