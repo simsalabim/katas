@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const precision = 1e-10
+
 func main() {
 	rand.Seed(int64(time.Now().Nanosecond()))
 	v := float64(rand.Intn(100))
@@ -27,14 +29,19 @@ func main() {
 	if !user_defined {
 		fmt.Println("Sqrt of", v)
 	}
-	fmt.Println(Sqrt(v))
-	fmt.Println(math.Sqrt(v))
+	fmt.Printf("Newton with precesion %e: %g\n", precision, Sqrt(v))
+	fmt.Println("Stdlib:", math.Sqrt(v))
 }
 
 func Sqrt(x float64) float64 {
 	z := x / 2
-	for i := 0; i < 10; i++ {
+	prev_z := z
+	for {
 		z = z - (z*z-x)/(2*z)
+		if prev_z-z <= precision {
+			break
+		}
+		prev_z = z
 	}
 	return z
 }
