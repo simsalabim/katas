@@ -11,4 +11,5 @@ func main() {
 	fmt.Println(problem_006(100))
 	fmt.Println(problem_007(10001))
 	fmt.Println(problem_008(13))
+	fmt.Println(problem_009(1000))
 }
