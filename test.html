@@ -1,0 +1,131 @@
+<!html>
+<body>
+  <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+  <script src="https://api.trello.com/1/client.js?key=d608b3d05a3af963ad63ff51a9cd0c09"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.4/lodash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twix.js/1.2.0/twix.min.js"></script>
+
+  <ul id="boards"></ul>
+  <span id="login">Login</span>
+  <span id="logout">Logout</span>
+  <canvas id="canvas" style="width: 75%"></canvas>
+
+  <script type="text/javascript">
+    var logout = function() {
+      Trello.deauthorize();
+    };
+
+    $(function() {
+      $("#logout").click(logout);
+
+      $("#login").click(function() {
+        Trello.authorize({
+          type: "popup",
+          success: onAuthorize
+        });
+      });
+
+      var onAuthorize = function() {
+        Trello.members.get("me/boards", function(boards) {
+          ul = ""
+          boards.forEach(function(board) {
+            li = `<li><span class="b-board" data-id="${board.id}">${board.name}<span></li>`
+            ul += li
+          });
+          $("#boards").html(ul);
+
+          $(".b-board").on("click", function(e) {
+            var boardId = $(e.target).data('id');
+            Trello.get("boards/" + boardId + "/cards/all?fields=id,name,labels", function(cards) {
+
+              datasets = {}
+              cards.forEach(function(card) {
+                card["createdAt"] = parseInt(card.id.slice(0,8), 16);
+                date = new Date(card.createdAt * 1000);
+                card["createdAtDate"] = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+
+                card.labels.forEach(function(label) {
+                  if (Object.keys(datasets).includes(label.name)) {
+                    if (! datasets[label.name].includes(label.name)) {
+                      datasets[label.name] = datasets[label.name].concat(card);
+                    }
+                  } else {
+                    datasets[label.name] = [card];
+                  }
+                });
+              });
+
+              labelObjects = _.uniqBy(_.flatten(_.map(cards, "labels")), "id")
+              labelMap = {}
+              labelObjects.forEach(function(label) {
+                labelMap[label.name] = label;
+              })
+
+              labels = Object.keys(datasets);
+              labels.forEach(function(label) {
+                datasets[label] = _.sortBy(datasets[label], "createdAt");
+              });
+
+              dates = _.uniq(_.map(_.sortBy(cards, "createdAt"), "createdAtDate"))
+
+              var itr = moment.twix(_.first(dates), _.last(dates)).iterate(7, "days");
+              range = [];
+              while(itr.hasNext()) { range.push(itr.next().format("YYYY-M-D")) }
+
+              findNextGroupDate = function(range, date) {
+                i = 0
+                while (i < range.length) {
+                  if (moment(date).isSameOrAfter(range[i]) && moment(date).isBefore(range[i+1])) {
+                    return range[i];
+                  }
+                  i++;
+                }
+                return null
+              }
+
+              for(label in datasets) {
+                datasets[label].forEach(function(card) {
+                  card.groupDate = findNextGroupDate(range, card.createdAtDate);
+                });
+              }
+
+              chartDatasets = _.map(datasets, function(cards, label) {
+                g = _.groupBy(cards, 'groupDate')
+                return {
+                  label: label,
+                  data: _.map(range, function(date) {
+                    if (g[date]) {
+                      return g[date].length;
+                    }
+                    return 0;
+                  }),
+                  borderColor: labelMap[label].color
+                }
+              });
+
+              var ctx = document.getElementById('canvas').getContext('2d');
+              var myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: range,
+                  datasets: chartDatasets,
+                },
+                options: {
+                  responsive: true,
+                  legend: { display: true },
+                }
+              });
+            });
+          });
+        });
+      }
+
+      window.Trello.authorize({
+        interactive: false,
+        success: onAuthorize
+      });
+    });
+  </script>
+</body>
